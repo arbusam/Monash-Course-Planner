@@ -2,6 +2,10 @@ export const UNITS_CSV_URL = 'https://raw.githubusercontent.com/JoelK06/Monash-u
 
 export const DATA_VERSION = '3';
 
+export const REQUISITES_CACHE_VERSION = '1';
+export const REQUISITES_FETCH_CONCURRENCY = 4;
+export const HANDBOOK_YEAR = '2026';
+
 export const FACULTY_COLORS = {
   "Business & Economics": "#00bcd4",
   "Engineering": "#ff9800",
@@ -29,6 +33,8 @@ export const STORAGE_KEYS = {
   UNITS_DATA: 'monashUnitsData',
   CACHE_TIME: 'monashUnitsCacheTime',
   DATA_VERSION: 'monashUnitsDataVersion',
+  REQUISITES_CACHE: 'monashUnitRequisitesCache',
+  REQUISITES_CACHE_VERSION: 'monashUnitRequisitesCacheVersion',
   PLANS: 'monashCoursePlans',
   LAST_PLAN_ID: 'monashLastPlanId',
   DARK_MODE: 'monashDarkMode'

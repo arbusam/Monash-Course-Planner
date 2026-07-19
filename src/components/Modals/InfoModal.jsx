@@ -22,10 +22,11 @@ export default function InfoModal({ onClose }) {
               developed into this git hub page where it is free for anyone to use.
             </p>
             <p>
-              The hope is that it may help make someone's course planning just a little easier. 
-              Note that as this was a quick project it does not consider credit points, prohibitions, 
-              prerequisites, and other such details. The one thing it does do is consider what units 
-              run in which semesters, which is helpful for degrees where many units only run once a year.
+              The hope is that it may help make someone's course planning just a little easier.
+              It checks unit-code prerequisites, corequisites, and prohibitions from the handbook
+              for units in your plan, and flags offering/semester mismatches. Credit-point totals,
+              course-level rules, and permission-based enrolment are not fully validated — always
+              confirm against the official handbook before enrolling.
             </p>
             <p>Thank you for using my program!</p>
             <p className="font-semibold">Created by Joel Knight</p>

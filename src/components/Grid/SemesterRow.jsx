@@ -15,7 +15,8 @@ export default function SemesterRow({
   onRemoveUnit,
   onUnitClick,
   setSemesters,
-  semesters
+  semesters,
+  unitValidationMap = {}
 }) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -271,6 +272,7 @@ export default function SemesterRow({
                   onDrop={onDrop}
                   onRemoveUnit={onRemoveUnit}
                   onUnitClick={onUnitClick}
+                  validationIssues={unit?._instanceId ? unitValidationMap[unit._instanceId] : null}
                 />
               );
             })}

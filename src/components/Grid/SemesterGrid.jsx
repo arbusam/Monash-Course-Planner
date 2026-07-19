@@ -9,7 +9,9 @@ export default function SemesterGrid({
   draggedUnit,
   setDraggedUnit,
   onUnitClick,
-  unitsData 
+  unitsData,
+  unitValidationMap = {},
+  mapIssues = []
 }) {
   const [contextMenuSemester, setContextMenuSemester] = useState(null);
 
@@ -145,6 +147,16 @@ export default function SemesterGrid({
 
   return (
     <div className="flex-1 overflow-auto p-8 relative">
+      {mapIssues.length > 0 && (
+        <div className="mb-4 border border-red-300 bg-red-50 p-4 rounded-lg">
+          <div className="font-semibold text-red-700">
+            This map is not valid yet ({mapIssues.length} unit{mapIssues.length > 1 ? 's' : ''} with requisites issues)
+          </div>
+          <div className="text-sm text-red-700 mt-1">
+            Units with prerequisite/corequisite/prohibition breaches are marked in red.
+          </div>
+        </div>
+      )}
       <div className="bg-white shadow-lg overflow-hidden">
         <table className="w-full border-collapse" style={{ minWidth: '900px' }}>
           <thead>
@@ -174,6 +186,7 @@ export default function SemesterGrid({
                 onUnitClick={onUnitClick}
                 setSemesters={setSemesters}
                 semesters={semesters}
+                unitValidationMap={unitValidationMap}
               />
             ))}    
           </tbody>

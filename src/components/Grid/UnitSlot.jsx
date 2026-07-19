@@ -12,7 +12,8 @@ export default function UnitSlot({
   setDraggedUnit,
   onDrop,
   onRemoveUnit,
-  onUnitClick
+  onUnitClick,
+  validationIssues
 }) {
   const [hoveredUnit, setHoveredUnit] = useState(null);
   const [hoverTimeout, setHoverTimeout] = useState(null);
@@ -78,10 +79,26 @@ export default function UnitSlot({
   if (unit) {
     const unitSpan = getUnitSpan(unit);
     const shouldShowCP = unit.credit_points && unit.credit_points > 0;
+    const hasEligibilityIssue = Array.isArray(validationIssues) && validationIssues.length > 0;
+    const getShortIssueLabel = () => {
+      if (!hasEligibilityIssue) return '';
+      if (validationIssues.some((issue) => issue.toLowerCase().includes('prerequisite'))) {
+        return '⚠️ Prerequisite not met';
+      }
+      if (validationIssues.some((issue) => issue.toLowerCase().includes('corequisite'))) {
+        return '⚠️ Corequisite not met';
+      }
+      if (validationIssues.some((issue) => issue.toLowerCase().includes('prohibition'))) {
+        return '⚠️ Prohibition breached';
+      }
+      return '⚠️ Requisites issue';
+    };
     
     return (
       <div
-        className="relative bg-white border border-gray-200 rounded-lg h-24 flex group cursor-pointer"
+        className={`relative border rounded-lg h-24 flex group cursor-pointer ${
+          hasEligibilityIssue ? 'bg-red-50 border-red-400' : 'bg-white border-gray-200'
+        }`}
         style={{ 
           gridColumn: unitSpan > 1 ? `span ${unitSpan}` : undefined,
           width: unitSpan > 1 ? '100%' : undefined
@@ -116,13 +133,19 @@ export default function UnitSlot({
               {unit.credit_points} Credit points
             </div>
           )}
+
+          {hasEligibilityIssue && (
+            <div className="text-xs text-red-700 mt-1 truncate" title="Hover the unit for details">
+              {getShortIssueLabel()}
+            </div>
+          )}
           
           {/* Warnings */}
-          {hasDuplicateInSemester(semester, unit.code) ? (
+          {!hasEligibilityIssue && hasDuplicateInSemester(semester, unit.code) ? (
             <div className="text-xs text-orange-600 mt-1">
               ⚠️ No duplicates
             </div>
-          ) : (() => {
+          ) : !hasEligibilityIssue ? (() => {
             const semesterYear = parseInt(semester.label.split(', ')[1]);
             let dataYear = semesterYear;
             
@@ -172,7 +195,7 @@ export default function UnitSlot({
             }
             
             return null;
-          })()}
+          })() : null}
         </div>
         <button
           onClick={(e) => {
@@ -186,7 +209,7 @@ export default function UnitSlot({
         
         {hoveredUnit && hoveredUnit._instanceId === unit._instanceId && (
           <div
-            className="absolute z-50 bg-gray-800 text-white p-2 rounded shadow-lg text-xs top-full mt-1 left-0 whitespace-nowrap"
+            className="absolute z-50 bg-gray-800 text-white p-2 rounded shadow-lg text-xs top-full mt-1 left-0 max-w-sm whitespace-normal"
             onMouseEnter={handlePopupEnter}
             onMouseLeave={handlePopupLeave}
           >
@@ -198,6 +221,18 @@ export default function UnitSlot({
             >
               View in Handbook →
             </a>
+            {hasEligibilityIssue && (
+              <div className="mt-2 border-t border-gray-600 pt-2">
+                <div className="text-red-300 font-semibold mb-1">Eligibility issues</div>
+                <ul className="list-disc pl-4 space-y-1 text-gray-100">
+                  {validationIssues.map((issue, idx) => (
+                    <li key={`${unit._instanceId}-issue-${idx}`} className="leading-snug">
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
