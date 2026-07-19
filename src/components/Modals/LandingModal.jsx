@@ -12,6 +12,7 @@ export default function LandingModal({ onStartNew }) {
             <li>• Create multiple plans and switch between them</li>
             <li>• Your plans auto-save in your browser</li>
             <li>• Flags handbook prerequisite, corequisite, and prohibition issues</li>
+            <li>• Add prior credit before Semester 1 for units you have already completed</li>
             <li>• Always check the handbook before making final decisions</li>
           </ul>
         </div>

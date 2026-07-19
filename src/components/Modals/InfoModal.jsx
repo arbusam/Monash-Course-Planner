@@ -24,9 +24,11 @@ export default function InfoModal({ onClose }) {
             <p>
               The hope is that it may help make someone's course planning just a little easier.
               It checks unit-code prerequisites, corequisites, and prohibitions from the handbook
-              for units in your plan, and flags offering/semester mismatches. Credit-point totals,
-              course-level rules, and permission-based enrolment are not fully validated — always
-              confirm against the official handbook before enrolling.
+              for units in your plan, and flags offering/semester mismatches. Use Prior credit
+              before Semester 1 for units you have already completed so they count toward
+              prerequisites. Credit-point totals, course-level rules, and permission-based
+              enrolment are not fully validated — always confirm against the official handbook
+              before enrolling.
             </p>
             <p>Thank you for using my program!</p>
             <p className="font-semibold">Created by Joel Knight</p>

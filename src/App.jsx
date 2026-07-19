@@ -256,6 +256,12 @@ function App() {
         }
 
         semesterCodes.add(unitCode);
+
+        // Prior credit units are already completed — don't validate their own requisites.
+        if (semester.semesterType === 'Prior Credit') {
+          return;
+        }
+
         const unitRequisites = requisitesByCode[unitCode];
         if (!unitRequisites || unitRequisites.status !== 'loaded') {
           return;
