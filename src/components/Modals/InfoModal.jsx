@@ -23,10 +23,10 @@ export default function InfoModal({ onClose }) {
             </p>
             <p>
               The hope is that it may help make someone's course planning just a little easier.
-              It checks unit-code prerequisites, corequisites, and prohibitions from the handbook
-              for units in your plan, and flags offering/semester mismatches. Use Prior credit
-              before Semester 1 for units you have already completed so they count toward
-              prerequisites. Credit-point totals, course-level rules, and permission-based
+              It checks Monash-unit and supported VCE prerequisites, corequisites, and prohibitions
+              from the handbook for units in your plan, and flags offering/semester mismatches.
+              Use the Prior Study menu to record completed Monash units, VCE subjects, study
+              scores, and your ATAR. Credit-point totals, course-level rules, and permission-based
               enrolment are not fully validated — always confirm against the official handbook
               before enrolling.
             </p>

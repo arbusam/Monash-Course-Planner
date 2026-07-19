@@ -4,8 +4,8 @@ The hope is that it may help make someone's course planning just a little easier
 Although it was originally created in a single html file it has since been migrated to vite. </p>
 ## **Features**
 - 7000+ units to choose from (as of Dec 2025)
-- Prerequisite / corequisite / prohibition checks (handbook unit-code rules)
-- Prior study / credit row before Semester 1
+- Prerequisite / corequisite / prohibition checks (including supported VCE rules)
+- Prior study menu for completed Monash units, VCE subjects, study scores, and ATAR
 - Add and remove as many semesters as you wish
 - Summer and Winter units
 - Historical semester detection

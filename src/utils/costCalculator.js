@@ -5,8 +5,6 @@ export const calculateCourseCost = (semesters) => {
   
   semesters.forEach(semester => {
     if (semester.isAcademicLeave) return;
-    if (semester.semesterType === 'Prior Credit') return;
-    
     semester.units.forEach(unit => {
       if (!unit || unit === 'ACADEMIC_LEAVE') return;
       

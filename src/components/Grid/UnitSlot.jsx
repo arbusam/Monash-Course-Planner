@@ -140,18 +140,12 @@ export default function UnitSlot({
             </div>
           )}
 
-          {semester.semesterType === 'Prior Credit' && !hasEligibilityIssue && (
-            <div className="text-xs text-amber-700 mt-1 truncate" title="Counts as completed before your first semester">
-              Prior credit
-            </div>
-          )}
-          
           {/* Warnings */}
-          {!hasEligibilityIssue && semester.semesterType !== 'Prior Credit' && hasDuplicateInSemester(semester, unit.code) ? (
+          {!hasEligibilityIssue && hasDuplicateInSemester(semester, unit.code) ? (
             <div className="text-xs text-orange-600 mt-1">
               ⚠️ No duplicates
             </div>
-          ) : !hasEligibilityIssue && semester.semesterType !== 'Prior Credit' ? (() => {
+          ) : !hasEligibilityIssue ? (() => {
             const semesterYear = parseInt(semester.label.split(', ')[1]);
             let dataYear = semesterYear;
             

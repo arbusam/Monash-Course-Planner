@@ -26,26 +26,8 @@ export default function SemesterGrid({
     return () => document.removeEventListener('click', handleClickOutside);
   }, [contextMenuSemester]);
 
-  const hasPriorCredit = semesters.some((s) => s.semesterType === 'Prior Credit');
-
-  const addPriorCredit = () => {
-    if (hasPriorCredit) return;
-
-    setSemesters([
-      {
-        id: `prior-${Date.now()}`,
-        label: 'Prior study / credit',
-        semesterType: 'Prior Credit',
-        units: [null, null, null, null]
-      },
-      ...semesters
-    ]);
-  };
-
   const addSemester = () => {
-    const lastSem =
-      [...semesters].reverse().find((s) => s.semesterType !== 'Prior Credit') ||
-      semesters[semesters.length - 1];
+    const lastSem = semesters[semesters.length - 1];
     if (!lastSem) return;
 
     const lastYear = parseInt(lastSem.label.split(', ')[1], 10) || new Date().getFullYear();
@@ -213,15 +195,6 @@ export default function SemesterGrid({
         </table>
         
         <div className="p-4 bg-gray-50 border-t border-gray-300 flex justify-center gap-3 flex-wrap">
-          {!hasPriorCredit && (
-            <button
-              onClick={addPriorCredit}
-              className="flex items-center gap-2 border border-amber-300 text-amber-800 bg-amber-50 px-6 py-3 rounded-lg hover:bg-amber-100 transition font-medium"
-            >
-              <Plus />
-              Add Prior Credit
-            </button>
-          )}
           <button
             onClick={addSemester}
             className="flex items-center gap-2 border border-gray-300 text-gray-700 bg-white px-6 py-3 rounded-lg hover:bg-gray-50 transition font-medium"

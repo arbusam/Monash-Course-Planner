@@ -15,6 +15,8 @@ export default function Header({
   darkMode,
   onToggleDarkMode,
   onShowInfo,
+  onShowPriorStudy,
+  priorStudyCount,
   courseCost 
 }) {
   return (
@@ -54,13 +56,26 @@ export default function Header({
           onRenamePlan={onRenamePlan} 
         />
         
-        <SettingsMenu
-          onExport={onExport}
-          onImport={onImport}
-          darkMode={darkMode}
-          onToggleDarkMode={onToggleDarkMode}
-          courseCost={courseCost}
-        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onShowPriorStudy}
+            className="flex items-center gap-2 border border-blue-600 text-blue-600 bg-white px-4 py-2 rounded-lg hover:bg-blue-50 transition"
+          >
+            Prior Study
+            {priorStudyCount > 0 && (
+              <span className="bg-blue-600 text-white rounded-full min-w-5 h-5 px-1 text-xs flex items-center justify-center">
+                {priorStudyCount}
+              </span>
+            )}
+          </button>
+          <SettingsMenu
+            onExport={onExport}
+            onImport={onImport}
+            darkMode={darkMode}
+            onToggleDarkMode={onToggleDarkMode}
+            courseCost={courseCost}
+          />
+        </div>
       </div>
     </>
   );

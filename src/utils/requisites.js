@@ -1,3 +1,9 @@
+import {
+  VCE_SUBJECT_ALIASES,
+  VCE_SUBJECT_BY_ID,
+  VCE_UNIT_CREDIT_EQUIVALENTS
+} from '../data/vceSubjects.js';
+
 const UNIT_CODE_REGEX = /\b[A-Z]{3,4}\d{4}\b/g;
 const UNIT_CODE_ONLY = /^[A-Z]{3,4}\d{4}$/i;
 
@@ -197,6 +203,63 @@ const stripHtml = (html) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const findVceSubject = (text) => {
+  const lower = text.toLowerCase();
+  return Object.entries(VCE_SUBJECT_ALIASES)
+    .sort(([a], [b]) => b.length - a.length)
+    .find(([alias]) => lower.includes(alias))?.[1] || null;
+};
+
+const parseThreshold = (text, label) => {
+  const patterns = label === 'atar'
+    ? [
+        /ATAR(?:\/ENTER)?(?:\s+score)?\s+(?:of\s+)?(?:at\s+least\s+)?(\d+(?:\.\d+)?)/i,
+        /(\d+(?:\.\d+)?)\s+(?:ATAR|ENTER)/i
+      ]
+    : [
+        /(?:raw\s+)?study\s+score\s+(?:of\s+)?(?:at\s+least\s+)?(\d+(?:\.\d+)?)/i,
+        /raw\s+score\s+(?:of\s+)?(?:at\s+least\s+)?(\d+(?:\.\d+)?)/i
+      ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return null;
+};
+
+const parseRequirementExpression = (html) => {
+  const text = stripHtml(html)
+    .replace(/^\s*(?:prerequisites?|corequisites?|prohibitions?)\s*:?\s*/i, '');
+  if (!text || !/\bVCE\b/i.test(text) || /^\s*recommended\b/i.test(text)) return null;
+
+  const clauses = text
+    .split(/\s*;\s*(?:or\s+)?|\s+or\s+(?=(?:VCE\b|[A-Z]{3,4}\d{4}\b|by approval))/i)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause && !/^by approval/i.test(clause));
+
+  const alternatives = clauses.flatMap((clause) => {
+    const nodes = [];
+    const codes = [...new Set((clause.match(UNIT_CODE_REGEX) || []).map((code) => code.toUpperCase()))];
+    codes.forEach((code) => nodes.push({ kind: 'unit', code }));
+
+    const subjectId = findVceSubject(clause);
+    if (subjectId && /\bVCE\b/i.test(clause)) {
+      nodes.push({
+        kind: 'vce',
+        subjectId,
+        minStudyScore: parseThreshold(clause, 'studyScore'),
+        minAtar: parseThreshold(clause, 'atar')
+      });
+    }
+
+    if (nodes.length === 0) return [];
+    return [nodes.length === 1 ? nodes[0] : { kind: 'all', items: nodes }];
+  });
+
+  if (alternatives.length === 0) return null;
+  return alternatives.length === 1 ? alternatives[0] : { kind: 'any', items: alternatives };
+};
+
 const extractLinkedUnitCodes = (html) => {
   const codes = [];
   const linkRe = /href=["'][^"']*\/units\/([A-Za-z]{3,4}\d{4})[^"']*["']/gi;
@@ -342,9 +405,11 @@ const parseEnrolmentRuleDescription = (html, excludeCode = null) => {
   while ((match = sectionPattern.exec(html)) !== null) {
     matchedSection = true;
     const type = normalizeRuleType(match[1]);
-    const rule = buildRuleFromGroups(type, parseRequirementGroups(match[2] || '', parseOpts));
-    if (rule) {
-      rules.push(rule);
+    const body = match[2] || '';
+    const expression = parseRequirementExpression(body);
+    const rule = buildRuleFromGroups(type, parseRequirementGroups(body, parseOpts));
+    if (rule || expression) {
+      rules.push(rule ? { ...rule, expression } : { type, unitCodes: [], containers: [], expression });
     }
   }
 
@@ -362,7 +427,10 @@ const parseEnrolmentRuleDescription = (html, excludeCode = null) => {
   const type = normalizeRuleType(typeMatch[1]);
   const body = plain.slice(typeMatch[0].length);
   const rule = buildRuleFromGroups(type, parseRequirementGroups(body, parseOpts));
-  return rule ? [rule] : [];
+  const expression = parseRequirementExpression(body);
+  return rule || expression
+    ? [{ ...(rule || { type, unitCodes: [], containers: [] }), expression }]
+    : [];
 };
 
 const parseEnrolmentRules = (enrolmentRules) => {
@@ -422,7 +490,7 @@ const mergeRulesByType = (primaryRules, fallbackRules) => {
   });
 
   fallbackRules.forEach((rule) => {
-    if (!byType.has(rule.type)) {
+    if (!byType.has(rule.type) || rule.expression) {
       byType.set(rule.type, rule);
     }
   });
@@ -431,6 +499,16 @@ const mergeRulesByType = (primaryRules, fallbackRules) => {
 };
 
 export const isValidUnitCode = (code) => UNIT_CODE_ONLY.test(String(code || ''));
+
+export const getPriorStudyUnitCodes = (priorStudy = {}) => {
+  const codes = new Set(
+    (priorStudy.monashUnitCodes || []).map((code) => String(code).toUpperCase())
+  );
+  (priorStudy.vceSubjects || []).forEach(({ subjectId }) => {
+    (VCE_UNIT_CREDIT_EQUIVALENTS[subjectId] || []).forEach((code) => codes.add(code));
+  });
+  return codes;
+};
 
 export const parseHandbookRequisites = (html) => {
   if (!html) {
@@ -461,7 +539,41 @@ export const parseHandbookRequisites = (html) => {
   return mergeRulesByType(structured, fallback);
 };
 
-export const evaluateRequisite = (rule, completedCodes) => {
+const evaluateExpression = (node, context) => {
+  if (!node) return true;
+  if (node.kind === 'all') return node.items.every((item) => evaluateExpression(item, context));
+  if (node.kind === 'any') return node.items.some((item) => evaluateExpression(item, context));
+  if (node.kind === 'unit') return context.completedCodes.has(node.code);
+  if (node.kind === 'vce') {
+    const result = context.vceSubjects.get(node.subjectId);
+    if (!result) return false;
+    if (node.minStudyScore != null &&
+      (result.studyScore == null || Number(result.studyScore) < node.minStudyScore)) return false;
+    if (node.minAtar != null &&
+      (context.atar == null || Number(context.atar) < node.minAtar)) return false;
+    return true;
+  }
+  return false;
+};
+
+const normalizeEvaluationContext = (value) => {
+  if (value instanceof Set) {
+    return { completedCodes: value, atar: null, vceSubjects: new Map() };
+  }
+  return {
+    completedCodes: value?.completedCodes || new Set(),
+    atar: value?.atar ?? null,
+    vceSubjects: new Map(
+      (value?.vceSubjects || []).map((item) => [item.subjectId, item])
+    )
+  };
+};
+
+export const evaluateRequisite = (rule, evaluationContext) => {
+  const context = normalizeEvaluationContext(evaluationContext);
+  if (rule?.expression) {
+    return evaluateExpression(rule.expression, context);
+  }
   const containers = Array.isArray(rule?.containers) ? rule.containers : [];
 
   if (containers.length === 0) {
@@ -470,7 +582,7 @@ export const evaluateRequisite = (rule, completedCodes) => {
 
   const containerResults = containers.map((container) => ({
     connector: getConnector(container),
-    value: evaluateContainer(container, completedCodes)
+    value: evaluateContainer(container, context.completedCodes)
   }));
 
   let result = containerResults[0].value;
@@ -481,6 +593,25 @@ export const evaluateRequisite = (rule, completedCodes) => {
 
   return result;
 };
+
+const describeExpression = (node) => {
+  if (!node) return '';
+  if (node.kind === 'all' || node.kind === 'any') {
+    const joiner = node.kind === 'all' ? ' and ' : ' or ';
+    return node.items.map(describeExpression).filter(Boolean).join(joiner);
+  }
+  if (node.kind === 'unit') return node.code;
+  if (node.kind === 'vce') {
+    const name = VCE_SUBJECT_BY_ID.get(node.subjectId)?.name || node.subjectId;
+    if (node.minStudyScore != null) return `VCE ${name} study score ≥ ${node.minStudyScore}`;
+    if (node.minAtar != null) return `VCE ${name} and ATAR ≥ ${node.minAtar}`;
+    return `VCE ${name}`;
+  }
+  return '';
+};
+
+export const describeRequisite = (rule) =>
+  describeExpression(rule?.expression) || (rule?.unitCodes || []).slice(0, 8).join(', ');
 
 export const extractUnitCodes = (rules = []) => {
   const allCodes = new Set();

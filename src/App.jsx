@@ -5,6 +5,7 @@ import { Loader } from './components/Icons/Icons';
 import LandingModal from './components/Modals/LandingModal';
 import SetupModal from './components/Modals/SetupModal';
 import InfoModal from './components/Modals/InfoModal';
+import PriorStudyModal from './components/Modals/PriorStudyModal';
 import Sidebar from './components/Sidebar/Sidebar';
 import Header from './components/Header/Header';
 import SemesterGrid from './components/Grid/SemesterGrid';
@@ -14,7 +15,11 @@ import {
   STORAGE_KEYS
 } from './utils/constants';
 import { calculateCourseCost } from './utils/costCalculator';
-import { evaluateRequisite } from './utils/requisites';
+import {
+  describeRequisite,
+  evaluateRequisite,
+  getPriorStudyUnitCodes
+} from './utils/requisites';
 
 function App() {
   const { unitsData, loading, error } = useUnitsData();
@@ -22,11 +27,17 @@ function App() {
   const [showLanding, setShowLanding] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showPriorStudyModal, setShowPriorStudyModal] = useState(false);
   const [plans, setPlans] = useState([]);
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [startYear, setStartYear] = useState(2025);
   const [degreeLength, setDegreeLength] = useState(4);
   const [semesters, setSemesters] = useState([]);
+  const [priorStudy, setPriorStudy] = useState({
+    monashUnitCodes: [],
+    atar: null,
+    vceSubjects: []
+  });
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -59,12 +70,12 @@ function App() {
     if (semesters.length > 0 && currentPlanId && plans.length > 0) {
       const updatedPlans = plans.map(p => 
         p.id === currentPlanId 
-          ? { ...p, semesters, startYear, degreeLength }
+          ? { ...p, semesters, startYear, degreeLength, priorStudy }
           : p
       );
       savePlans(updatedPlans, currentPlanId);
     }
-  }, [semesters]);
+  }, [semesters, priorStudy]);
 
   // Load saved plans when units data is ready
   useEffect(() => {
@@ -229,7 +240,7 @@ function App() {
 
   const unitValidationMap = useMemo(() => {
     const validation = {};
-    const allPlacedCodes = new Set();
+    const allPlacedCodes = getPriorStudyUnitCodes(priorStudy);
 
     semesters.forEach((semester) => {
       semester.units.forEach((unit) => {
@@ -239,7 +250,7 @@ function App() {
       });
     });
 
-    const completedCodes = new Set();
+    const completedCodes = getPriorStudyUnitCodes(priorStudy);
     semesters.forEach((semester) => {
       const semesterCodes = new Set();
       const seenInstanceIds = new Set();
@@ -257,11 +268,6 @@ function App() {
 
         semesterCodes.add(unitCode);
 
-        // Prior credit units are already completed — don't validate their own requisites.
-        if (semester.semesterType === 'Prior Credit') {
-          return;
-        }
-
         const unitRequisites = requisitesByCode[unitCode];
         if (!unitRequisites || unitRequisites.status !== 'loaded') {
           return;
@@ -272,9 +278,13 @@ function App() {
           const ruleType = (rule.type || '').toLowerCase();
 
           if (ruleType.includes('prereq')) {
-            const prerequisiteMet = evaluateRequisite(rule, completedCodes);
+            const prerequisiteMet = evaluateRequisite(rule, {
+              completedCodes,
+              atar: priorStudy.atar,
+              vceSubjects: priorStudy.vceSubjects
+            });
             if (!prerequisiteMet) {
-              const unitList = (rule.unitCodes || []).slice(0, 8).join(', ');
+              const unitList = describeRequisite(rule);
               issues.push(
                 unitList
                   ? `Prerequisite not met. Requires: ${unitList}`
@@ -286,10 +296,14 @@ function App() {
           if (ruleType.includes('coreq')) {
             const corequisiteMet = evaluateRequisite(
               rule,
-              new Set([...completedCodes, ...semesterCodes])
+              {
+                completedCodes: new Set([...completedCodes, ...semesterCodes]),
+                atar: priorStudy.atar,
+                vceSubjects: priorStudy.vceSubjects
+              }
             );
             if (!corequisiteMet) {
-              const unitList = (rule.unitCodes || []).slice(0, 8).join(', ');
+              const unitList = describeRequisite(rule);
               issues.push(
                 unitList
                   ? `Corequisite not met. Requires with/after: ${unitList}`
@@ -302,12 +316,17 @@ function App() {
             const otherTakenCodes = new Set(
               [...allPlacedCodes].filter((code) => code !== unitCode)
             );
-            const prohibitionBreached = evaluateRequisite(rule, otherTakenCodes);
+            const prohibitionBreached = evaluateRequisite(rule, {
+              completedCodes: otherTakenCodes,
+              atar: priorStudy.atar,
+              vceSubjects: priorStudy.vceSubjects
+            });
             if (prohibitionBreached) {
               const conflictingCodes = (rule.unitCodes || []).filter((code) =>
                 otherTakenCodes.has(code)
               );
-              const conflictText = conflictingCodes.slice(0, 8).join(', ');
+              const conflictText = conflictingCodes.slice(0, 8).join(', ') ||
+                describeRequisite(rule);
               issues.push(
                 conflictText
                   ? `Prohibition breached with: ${conflictText}`
@@ -326,7 +345,7 @@ function App() {
     });
 
     return validation;
-  }, [semesters, requisitesByCode]);
+  }, [semesters, requisitesByCode, priorStudy]);
 
   const mapIssues = useMemo(() => {
     const issues = [];
@@ -358,6 +377,11 @@ function App() {
     setStartYear(plan.startYear);
     setDegreeLength(plan.degreeLength);
     setSemesters(validSemesters);
+    setPriorStudy({
+      monashUnitCodes: plan.priorStudy?.monashUnitCodes || [],
+      atar: plan.priorStudy?.atar ?? null,
+      vceSubjects: plan.priorStudy?.vceSubjects || []
+    });
   };
 
   const savePlans = (updatedPlans, planId) => {
@@ -393,13 +417,15 @@ function App() {
       name: `Plan ${plans.length + 1}`,
       startYear,
       degreeLength,
-      semesters: newSemesters
+      semesters: newSemesters,
+      priorStudy: { monashUnitCodes: [], atar: null, vceSubjects: [] }
     };
     
     const updatedPlans = [...plans, newPlan];
     savePlans(updatedPlans, newPlan.id);
     setCurrentPlanId(newPlan.id);
     setSemesters(newSemesters);
+    setPriorStudy(newPlan.priorStudy);
     setShowSetup(false);
   };
 
@@ -436,7 +462,8 @@ function App() {
       name: `Plan ${plans.length + 1}`,
       startYear: newStartYear,
       degreeLength: newDegreeLength,
-      semesters: []
+      semesters: [],
+      priorStudy: { monashUnitCodes: [], atar: null, vceSubjects: [] }
     };
     
     const newSemesters = [];
@@ -525,6 +552,7 @@ function App() {
       startYear, 
       degreeLength, 
       semesters,
+      priorStudy,
       name: currentPlan?.name || 'Course Plan'
     }, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -554,7 +582,8 @@ function App() {
             name: planName,
             startYear: data.startYear || 2025,
             degreeLength: data.degreeLength || 4,
-            semesters: data.semesters || []
+            semesters: data.semesters || [],
+            priorStudy: data.priorStudy || { monashUnitCodes: [], atar: null, vceSubjects: [] }
           };
           
           // Refresh unit data from current unitsData
@@ -581,6 +610,7 @@ function App() {
           setStartYear(newPlan.startYear);
           setDegreeLength(newPlan.degreeLength);
           setSemesters(validSemesters);
+          setPriorStudy(newPlan.priorStudy);
           
         } catch (error) {
           console.error('Error importing plan:', error);
@@ -662,6 +692,12 @@ function App() {
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
           onShowInfo={() => setShowInfoModal(true)}
+          onShowPriorStudy={() => setShowPriorStudyModal(true)}
+          priorStudyCount={
+            priorStudy.monashUnitCodes.length +
+            priorStudy.vceSubjects.length +
+            (priorStudy.atar == null ? 0 : 1)
+          }
           courseCost={courseCost}
         />
         
@@ -679,6 +715,17 @@ function App() {
       </div>
 
       {showInfoModal && <InfoModal onClose={() => setShowInfoModal(false)} />}
+      {showPriorStudyModal && (
+        <PriorStudyModal
+          initialValue={priorStudy}
+          unitsData={unitsData}
+          onClose={() => setShowPriorStudyModal(false)}
+          onSave={(value) => {
+            setPriorStudy(value);
+            setShowPriorStudyModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
