@@ -252,9 +252,11 @@ function App() {
 
     const completedCodes = getPriorStudyUnitCodes(priorStudy);
     semesters.forEach((semester) => {
+      const semesterUnits = [];
       const semesterCodes = new Set();
       const seenInstanceIds = new Set();
 
+      // Collect the full semester first so corequisites work regardless of slot order.
       semester.units.forEach((unit) => {
         if (!unit || unit === 'ACADEMIC_LEAVE' || !unit._instanceId || seenInstanceIds.has(unit._instanceId)) {
           return;
@@ -267,7 +269,12 @@ function App() {
         }
 
         semesterCodes.add(unitCode);
+        semesterUnits.push({ unit, unitCode });
+      });
 
+      const codesWithCoreqs = new Set([...completedCodes, ...semesterCodes]);
+
+      semesterUnits.forEach(({ unit, unitCode }) => {
         const unitRequisites = requisitesByCode[unitCode];
         if (!unitRequisites || unitRequisites.status !== 'loaded') {
           return;
@@ -294,14 +301,11 @@ function App() {
           }
 
           if (ruleType.includes('coreq')) {
-            const corequisiteMet = evaluateRequisite(
-              rule,
-              {
-                completedCodes: new Set([...completedCodes, ...semesterCodes]),
-                atar: priorStudy.atar,
-                vceSubjects: priorStudy.vceSubjects
-              }
-            );
+            const corequisiteMet = evaluateRequisite(rule, {
+              completedCodes: codesWithCoreqs,
+              atar: priorStudy.atar,
+              vceSubjects: priorStudy.vceSubjects
+            });
             if (!corequisiteMet) {
               const unitList = describeRequisite(rule);
               issues.push(
