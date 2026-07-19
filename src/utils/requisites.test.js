@@ -76,6 +76,33 @@ test('existing structured unit-code rules still evaluate', () => {
   assert.equal(evaluateRequisite(rule, new Set(['CCC1000'])), false);
 });
 
+test('one unit from A, B and one unit from C, D or E is AND of ORs', () => {
+  const [rule] = parseHandbookRequisites(handbookHtml(
+    '<p><strong>PREREQUISITE</strong>: One unit from ' +
+    '<a href="/units/PHS1022">PHS1022</a>, <a href="/units/PHS1002">PHS1002</a> ' +
+    'and one unit from <a href="/units/MTH1030">MTH1030</a>, ' +
+    '<a href="/units/MTH1035">MTH1035</a> or <a href="/units/ENG1005">ENG1005</a></p>'
+  ));
+
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1022', 'MTH1035'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1002', 'ENG1005'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1022'])), false);
+  assert.equal(evaluateRequisite(rule, new Set(['MTH1035'])), false);
+});
+
+test('A or B and one of C, D or E is AND of ORs', () => {
+  const [rule] = parseHandbookRequisites(handbookHtml(
+    '<p><strong>PREREQUISITE:</strong> <a href="/units/PHS1022">PHS1022</a> or ' +
+    '<a href="/units/PHS1002">PHS1002</a> and one of ' +
+    '<a href="/units/MTH1030">MTH1030</a>, <a href="/units/MTH1035">MTH1035</a> or ' +
+    '<a href="/units/ENG1005">ENG1005</a></p>'
+  ));
+
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1022', 'MTH1035'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1002', 'MTH1030'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['PHS1022', 'PHS1002'])), false);
+});
+
 test('at least one of comma list is OR', () => {
   const [rule] = parseHandbookRequisites(handbookHtml(
     '<p><strong>PREREQUISITE</strong>: At least one of ' +

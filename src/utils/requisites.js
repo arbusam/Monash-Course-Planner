@@ -293,22 +293,33 @@ const parseRequirementGroups = (plainText, { allowedCodes = null, excludeCode = 
   }
 
   const groups = [];
-  // "at least one of A, B, C" / "one of A, B or C" — trailing "or" is optional.
-  const tokenRe =
-    /(?:at\s+least\s+)?one\s+of\s+((?:[A-Z]{3,4}\d{4})(?:\s*,\s*(?:or\s+)?[A-Z]{3,4}\d{4})*(?:\s+or\s+[A-Z]{3,4}\d{4})?)|([A-Z]{3,4}\d{4})/gi;
+  // Match OR phrases before bare unit codes:
+  // - "at least one of A, B, C" / "one unit from A, B"
+  // - "A or B or C" (also when followed by "and …")
+  // Trailing "or" in comma lists is optional.
+  const unitList =
+    '((?:[A-Z]{3,4}\\d{4})(?:\\s*,\\s*(?:or\\s+)?[A-Z]{3,4}\\d{4})*(?:\\s+or\\s+[A-Z]{3,4}\\d{4})?)';
+  const tokenRe = new RegExp(
+    `(?:at\\s+least\\s+)?one\\s+(?:unit\\s+)?(?:from|of)\\s+${unitList}` +
+      `|((?:[A-Z]{3,4}\\d{4})(?:\\s+or\\s+[A-Z]{3,4}\\d{4})+)` +
+      `|([A-Z]{3,4}\\d{4})`,
+    'gi'
+  );
   let match;
 
   while ((match = tokenRe.exec(text)) !== null) {
-    if (match[1]) {
-      let codes = (match[1].match(UNIT_CODE_REGEX) || []).map((code) => code.toUpperCase());
+    if (match[1] || match[2]) {
+      let codes = ((match[1] || match[2]).match(UNIT_CODE_REGEX) || []).map((code) =>
+        code.toUpperCase()
+      );
       if (allowedCodes) {
         codes = codes.filter((code) => allowedCodes.has(code));
       }
       if (codes.length > 0) {
         groups.push({ connector: 'OR', codes });
       }
-    } else if (match[2]) {
-      const code = match[2].toUpperCase();
+    } else if (match[3]) {
+      const code = match[3].toUpperCase();
       if (!allowedCodes || allowedCodes.has(code)) {
         groups.push({ connector: 'AND', codes: [code] });
       }
