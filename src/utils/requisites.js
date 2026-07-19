@@ -293,8 +293,9 @@ const parseRequirementGroups = (plainText, { allowedCodes = null, excludeCode = 
   }
 
   const groups = [];
+  // "at least one of A, B, C" / "one of A, B or C" — trailing "or" is optional.
   const tokenRe =
-    /one\s+of\s+((?:[A-Z]{3,4}\d{4})(?:\s*,\s*[A-Z]{3,4}\d{4})*(?:\s+or\s+[A-Z]{3,4}\d{4})+)|([A-Z]{3,4}\d{4})/gi;
+    /(?:at\s+least\s+)?one\s+of\s+((?:[A-Z]{3,4}\d{4})(?:\s*,\s*(?:or\s+)?[A-Z]{3,4}\d{4})*(?:\s+or\s+[A-Z]{3,4}\d{4})?)|([A-Z]{3,4}\d{4})/gi;
   let match;
 
   while ((match = tokenRe.exec(text)) !== null) {
@@ -343,7 +344,9 @@ const buildRuleFromGroups = (type, groups) => {
   }
 
   if (groups.every((group) => group.connector === 'AND' && group.codes.length === 1)) {
-    return buildRuleFromCodes(type, unitCodes, 'AND');
+    // "Prohibitions: A, B" means either unit conflicts, not both.
+    const connector = type === 'prohibitions' ? 'OR' : 'AND';
+    return buildRuleFromCodes(type, unitCodes, connector);
   }
 
   const relationships = [];
@@ -417,20 +420,43 @@ const parseEnrolmentRuleDescription = (html, excludeCode = null) => {
     return rules;
   }
 
-  // No <strong> heading — infer type from leading keyword in plain text
+  // No <strong> heading — split plain text on each rule-type label so a single
+  // paragraph like "Prerequisite: … Prohibitions: FIT1049, FIT2003" keeps types apart.
   const plain = stripHtml(html);
-  const typeMatch = plain.match(/^\s*(prerequisites?|corequisites?|prohibitions?)\s*:?\s*/i);
-  if (!typeMatch) {
+  const plainSectionPattern =
+    /(prerequisites?|corequisites?|prohibitions?)\s*:?\s*/gi;
+  const sections = [];
+  let sectionMatch;
+  while ((sectionMatch = plainSectionPattern.exec(plain)) !== null) {
+    sections.push({
+      type: normalizeRuleType(sectionMatch[1]),
+      start: sectionMatch.index + sectionMatch[0].length,
+      labelStart: sectionMatch.index
+    });
+  }
+
+  if (sections.length === 0) {
     return [];
   }
 
-  const type = normalizeRuleType(typeMatch[1]);
-  const body = plain.slice(typeMatch[0].length);
-  const rule = buildRuleFromGroups(type, parseRequirementGroups(body, parseOpts));
-  const expression = parseRequirementExpression(body);
-  return rule || expression
-    ? [{ ...(rule || { type, unitCodes: [], containers: [] }), expression }]
-    : [];
+  sections.forEach((section, index) => {
+    const end = index + 1 < sections.length ? sections[index + 1].labelStart : plain.length;
+    const body = plain.slice(section.start, end).trim();
+    const expression = parseRequirementExpression(body);
+    const rule = buildRuleFromGroups(
+      section.type,
+      parseRequirementGroups(body, parseOpts)
+    );
+    if (rule || expression) {
+      rules.push(
+        rule
+          ? { ...rule, expression }
+          : { type: section.type, unitCodes: [], containers: [], expression }
+      );
+    }
+  });
+
+  return rules;
 };
 
 const parseEnrolmentRules = (enrolmentRules) => {

@@ -76,6 +76,32 @@ test('existing structured unit-code rules still evaluate', () => {
   assert.equal(evaluateRequisite(rule, new Set(['CCC1000'])), false);
 });
 
+test('at least one of comma list is OR', () => {
+  const [rule] = parseHandbookRequisites(handbookHtml(
+    '<p><strong>PREREQUISITE</strong>: At least one of ' +
+    '<a href="/units/MTH1035">MTH1035</a>, <a href="/units/MTH2025">MTH2025</a>, ' +
+    '<a href="/units/MTH2121">MTH2121</a>, <a href="/units/FIT2014">FIT2014</a></p>'
+  ));
+
+  assert.equal(evaluateRequisite(rule, new Set(['MTH1035'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['FIT2014'])), true);
+  assert.equal(evaluateRequisite(rule, new Set(['MTH1010'])), false);
+});
+
+test('plain-text prohibitions are not treated as prerequisites', () => {
+  const rules = parseHandbookRequisites(handbookHtml(
+    '<p>Prerequisite: Requires a minimum of 12 credit points of FIT units.<br />Prohibitions: FIT1049, FIT2003</p>'
+  ));
+
+  assert.equal(rules.some((rule) => rule.type === 'prerequisite'), false);
+  const prohibition = rules.find((rule) => rule.type === 'prohibitions');
+  assert.ok(prohibition);
+  assert.deepEqual(prohibition.unitCodes.sort(), ['FIT1049', 'FIT2003']);
+  assert.equal(evaluateRequisite(prohibition, new Set(['FIT1049'])), true);
+  assert.equal(evaluateRequisite(prohibition, new Set(['FIT2003'])), true);
+  assert.equal(evaluateRequisite(prohibition, new Set(['MTH1020'])), false);
+});
+
 test('VCE Algorithmics grants FIT1045 and FIT1053 prior credit', () => {
   const completedCodes = getPriorStudyUnitCodes({
     monashUnitCodes: [],

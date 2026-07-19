@@ -2,7 +2,7 @@ export const UNITS_CSV_URL = 'https://raw.githubusercontent.com/JoelK06/Monash-u
 
 export const DATA_VERSION = '3';
 
-export const REQUISITES_CACHE_VERSION = '2';
+export const REQUISITES_CACHE_VERSION = '4';
 export const REQUISITES_FETCH_CONCURRENCY = 4;
 export const HANDBOOK_YEAR = '2026';
 
